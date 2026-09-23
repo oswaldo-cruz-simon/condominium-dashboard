@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 
 
 st.set_page_config(
-    page_title="Financial Dashboard",
+    page_title="Vista Bella 2",
     layout="wide"
 )
 
@@ -120,7 +120,7 @@ def load_debt_data(file_path):
 def render_cashflow_balance_chart(df):
 
     st.subheader(
-        "Income, Outcome, Balance & Expected Income"
+        "Ingresos, Gastos, Balance & Ingresos esperados"
     )
 
     # Income
@@ -227,8 +227,8 @@ def render_cashflow_balance_chart(df):
 
     fig.update_layout(
         title=(
-            "Monthly Income, Outcome, "
-            "Balance & Expected Income"
+            "Ingresos, Gastos, Balance & "
+            "Ingresos esperados por mes"
         ),
 
         barmode="group",
@@ -265,14 +265,9 @@ def render_cashflow_balance_chart(df):
 # CHARGES CHART
 # =========================================================
 
-def render_charges_stacked_bar_chart(
-    df,
-    key_suffix=""
-):
+def render_charges_stacked_bar_chart(title, df, key_suffix=""):
 
-    st.subheader(
-        "Monthly Charges by Category"
-    )
+    st.subheader(title)
 
     categories = (
         df["category"]
@@ -282,7 +277,7 @@ def render_charges_stacked_bar_chart(
     )
 
     selected_categories = st.multiselect(
-        "Charge categories",
+        "Categories",
         options=categories,
         default=categories,
         key=f"charge_categories_{key_suffix}"
@@ -320,7 +315,7 @@ def render_charges_stacked_bar_chart(
         y="amount",
         color="category",
         barmode="relative",
-        title="Monthly Charges by Category"
+        title=title
     )
 
     fig.update_traces(
@@ -361,7 +356,7 @@ def render_debt_by_house_chart(df):
     import numpy as np
     import plotly.graph_objects as go
 
-    st.subheader("Debt by House")
+    st.subheader("Deuda por casa")
 
     chart_df = (
         df.sort_values("total_debt", ascending=True)
@@ -415,11 +410,11 @@ def render_debt_by_house_chart(df):
     )
 
     fig.update_layout(
-        title="Debt by House",
+        title="Deuda por casa",
         barmode="relative",
 
         xaxis=dict(
-            title="Debt (logarithmic scale)",
+            title="Deuda",
             zeroline=True,
             tickvals=[
                 symlog(-150000),
@@ -430,26 +425,26 @@ def render_debt_by_house_chart(df):
                 symlog(100000),
                 symlog(150000),
             ],
-            ticktext=[
-                "-$150K",
-                "-$100K",
-                "-$50K",
-                "$0",
-                "$50K",
-                "$100K",
-                "$150K",
-            ],
+            # ticktext=[
+            #     "-$150K",
+            #     "-$100K",
+            #     "-$50K",
+            #     "$0",
+            #     "$50K",
+            #     "$100K",
+            #     "$150K",
+            # ],
         ),
 
         yaxis=dict(
-            title="House",
+            title="Casa",
             categoryorder="array",
             categoryarray=chart_df["casa"].tolist(),
         ),
 
         height=900,
         hovermode="closest",
-        legend=dict(title="Debt Type"),
+        legend=dict(title="Tipo de deuda"),
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -459,15 +454,15 @@ def render_debt_by_house_chart(df):
 
 def main():
 
-    st.title("Financial Dashboard")
+    st.title("Vista Bella 2")
 
     tab1, tab2 = st.tabs([
-        "Financial Dashboard",
-        "Debt by House"
+        "General",
+        "Deuda por casa"
     ])
 
     # =====================================================
-    # TAB 1 - FINANCIAL DASHBOARD
+    # TAB 1 - Vista Bella 2
     # =====================================================
 
     with tab1:
@@ -494,12 +489,14 @@ def main():
 
         with col1:
             render_charges_stacked_bar_chart(
+                "Gastos mensuales por categoria",
                 charges_df_1,
                 key_suffix="1"
             )
 
         with col2:
             render_charges_stacked_bar_chart(
+                "Ingresos esperados mensuales por categoria",
                 charges_df_2,
                 key_suffix="2"
             )
