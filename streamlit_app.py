@@ -3,6 +3,11 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+COLOR_GREEN = "#2E7D5B"   # Muted green
+COLOR_RED = "#C75C5C"     # Soft red
+COLOR_YELLOW = "#D4A72C"  # Muted gold
+COLOR_BLUE = "#4F81A8"    # Optional blue
+
 
 st.set_page_config(
     page_title="Vista Bella 2",
@@ -113,9 +118,29 @@ def load_debt_data(file_path):
 
     return df.sort_values("total_debt")
 
-# =========================================================
-# CASHFLOW CHART
-# =========================================================
+
+def load_metrics_data(file_path):
+    df = pd.read_csv(file_path)
+
+    required_columns = {
+        "category",
+        "amount"
+    }
+
+    if not required_columns.issubset(df.columns):
+        raise ValueError(
+            f"Metrics CSV must contain: {required_columns}"
+        )
+
+    df["amount"] = pd.to_numeric(
+        df["amount"],
+        errors="coerce"
+    )
+
+    df = df.dropna(subset=["amount"])
+
+    return df
+
 
 def render_cashflow_balance_chart(df):
 
@@ -158,12 +183,12 @@ def render_cashflow_balance_chart(df):
         go.Bar(
             x=income_df["month"],
             y=income_df["amount"],
-            name="Income",
+            name="Ingresos",
             offsetgroup="income",
-            marker_color="green",
+            marker_color=COLOR_GREEN,
             hovertemplate=(
                 "%{x|%Y-%m}<br>"
-                "Income<br>"
+                "Ingresos<br>"
                 "$%{y:,.2f}"
                 "<extra></extra>"
             )
@@ -175,12 +200,12 @@ def render_cashflow_balance_chart(df):
         go.Bar(
             x=outcome_df["month"],
             y=outcome_df["amount"],
-            name="Outcome",
+            name="Gastos",
             offsetgroup="outcome",
-            marker_color="red",
+            marker_color=COLOR_RED,
             hovertemplate=(
                 "%{x|%Y-%m}<br>"
-                "Outcome<br>"
+                "Gastos<br>"
                 "$%{y:,.2f}"
                 "<extra></extra>"
             )
@@ -209,16 +234,16 @@ def render_cashflow_balance_chart(df):
         go.Scatter(
             x=expected_income_df["month"],
             y=expected_income_df["amount"],
-            name="Expected Income",
+            name="Ingresos esperados",
             mode="lines+markers",
             line=dict(
                 width=2,
                 dash="dash",
-                color="blue"
+                color='blue'
             ),
             hovertemplate=(
                 "%{x|%Y-%m}<br>"
-                "Expected Income<br>"
+                "Ingresos esperados<br>"
                 "$%{y:,.2f}"
                 "<extra></extra>"
             )
@@ -260,10 +285,6 @@ def render_cashflow_balance_chart(df):
         use_container_width=True
     )
 
-
-# =========================================================
-# CHARGES CHART
-# =========================================================
 
 def render_charges_stacked_bar_chart(title, df, key_suffix=""):
 
@@ -350,8 +371,11 @@ def render_charges_stacked_bar_chart(title, df, key_suffix=""):
         use_container_width=True
     )
 
+
 def render_debt_by_house_chart(df):
-    """Render horizontal stacked debt chart using a symmetric log scale."""
+    """Render horizontal debt chart with positive values on the left
+    and negative values on the right.
+    """
 
     import numpy as np
     import plotly.graph_objects as go
@@ -365,92 +389,168 @@ def render_debt_by_house_chart(df):
 
     chart_df["casa"] = chart_df["casa"].astype(str)
 
-    # Symmetric logarithmic transformation.
-    # Keeps negative and positive values while compressing large values.
+    # Symmetric logarithmic transformation
     def symlog(x, linthresh=1000):
         return np.sign(x) * np.log10(
             1 + np.abs(x) / linthresh
         )
 
-    chart_df["main_debt_log"] = chart_df["main_debt_balance"].apply(symlog)
-    chart_df["other_debt_log"] = chart_df["other_debt_balance"].apply(symlog)
+    # ---------------------------------------------------------
+    # Visual position:
+    # Positive debt -> LEFT
+    # Negative debt -> RIGHT
+    # ---------------------------------------------------------
+
+    chart_df["main_debt_visual"] = (
+        -chart_df["main_debt_balance"]
+    )
+
+    chart_df["other_debt_visual"] = (
+        -chart_df["other_debt_balance"]
+    )
+
+    chart_df["main_debt_log"] = (
+        chart_df["main_debt_visual"].apply(symlog)
+    )
+
+    chart_df["other_debt_log"] = (
+        chart_df["other_debt_visual"].apply(symlog)
+    )
 
     fig = go.Figure()
+
+    # ---------------------------------------------------------
+    # Main Debt
+    # ---------------------------------------------------------
 
     fig.add_trace(
         go.Bar(
             y=chart_df["casa"],
             x=chart_df["main_debt_log"],
             customdata=chart_df["main_debt_balance"],
-            name="Main Debt",
+            name="Deuda que causa Mora",
             orientation="h",
+            marker_color=COLOR_RED,
             hovertemplate=(
                 "Casa %{y}<br>"
-                "Main Debt<br>"
+                "Causa Mora<br>"
                 "$%{customdata:,.2f}"
                 "<extra></extra>"
             )
         )
     )
+
+    # ---------------------------------------------------------
+    # Other Debt
+    # ---------------------------------------------------------
 
     fig.add_trace(
         go.Bar(
             y=chart_df["casa"],
             x=chart_df["other_debt_log"],
             customdata=chart_df["other_debt_balance"],
-            name="Other Debt",
+            name="Deuda que no causa mora",
             orientation="h",
+            marker_color=COLOR_YELLOW,
             hovertemplate=(
                 "Casa %{y}<br>"
-                "Other Debt<br>"
+                "No causa mora<br>"
                 "$%{customdata:,.2f}"
                 "<extra></extra>"
             )
         )
     )
 
+    # ---------------------------------------------------------
+    # X axis
+    # ---------------------------------------------------------
+
+    tick_values = [
+        -150000,
+        -100000,
+        -50000,
+        0,
+        50000,
+        100000,
+        150000,
+    ]
+
     fig.update_layout(
         title="Deuda por casa",
         barmode="relative",
 
         xaxis=dict(
-            title="Deuda",
+            title="Debt",
             zeroline=True,
+            zerolinewidth=2,
+
             tickvals=[
-                symlog(-150000),
-                symlog(-100000),
-                symlog(-50000),
-                0,
-                symlog(50000),
-                symlog(100000),
-                symlog(150000),
-            ],
-            # ticktext=[
-            #     "-$150K",
-            #     "-$100K",
-            #     "-$50K",
-            #     "$0",
-            #     "$50K",
-            #     "$100K",
-            #     "$150K",
-            # ],
+                symlog(-x)
+                for x in tick_values
+            ]
         ),
 
         yaxis=dict(
-            title="Casa",
+            title="House",
             categoryorder="array",
             categoryarray=chart_df["casa"].tolist(),
         ),
 
         height=900,
         hovermode="closest",
-        legend=dict(title="Tipo de deuda"),
+
+        legend=dict(
+            title="Debt Type"
+        )
     )
 
-    st.plotly_chart(fig, use_container_width=True)
-# =========================================================
-# MAIN
-# =========================================================
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+    st.subheader("Debt Data")
+
+    table_df = chart_df[
+        [
+            "casa",
+            "main_debt_balance",
+            "other_debt_balance",
+            "total_debt",
+        ]
+    ].copy()
+
+    table_df = table_df.rename(
+        columns={
+            "casa": "House",
+            "main_debt_balance": "Main Debt",
+            "other_debt_balance": "Other Debt",
+            "total_debt": "Total Debt",
+        }
+    )
+
+    st.dataframe(
+        table_df.style.format({
+            "Main Debt": "${:,.2f}",
+            "Other Debt": "${:,.2f}",
+            "Total Debt": "${:,.2f}",
+        }),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
+def render_debt_metrics(df):
+    """Render debt metrics above the debt chart."""
+
+    cols = st.columns(len(df))
+
+    for col, (_, row) in zip(cols, df.iterrows()):
+        with col:
+            st.metric(
+                label=row["category"],
+                value=f"${row['amount']:,.2f}"
+            )
+
 
 def main():
 
@@ -506,14 +606,10 @@ def main():
     # =====================================================
 
     with tab2:
-
-        debt_df = load_debt_data(
-            "data/debt.csv"
-        )
-
-        render_debt_by_house_chart(
-            debt_df
-        )
+        metrics_df = load_metrics_data("data/metrics.csv")
+        debt_df = load_debt_data("data/debt.csv")
+        render_debt_metrics(metrics_df)
+        render_debt_by_house_chart(debt_df)
 
 if __name__ == "__main__":
     main()
